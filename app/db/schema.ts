@@ -138,10 +138,10 @@ export const booksRelations = relations(books, ({ one }) => ({
 
 export const notifications = tableCreator("notification", {
   id: serial("id").primaryKey(),
-  userId: serial("userId") // admin user who receives the notification
+  userId: serial("userId") 
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
-  commentId: serial("commentId") // link to the new comment
+  commentId: integer("commentId") 
     .notNull()
     .references(() => comments.id, { onDelete: "cascade" }),
   isRead: boolean("isRead").notNull().default(false),
