@@ -1,4 +1,5 @@
 import { Bell, MessageCircle, AlertCircle, X } from 'lucide-react';
+import { Link } from '@tanstack/react-router'
 
 type NotificationsDropdownProps = {
   isOpen: boolean;
@@ -63,12 +64,14 @@ function NotificationsDropdown({
           </li>
         ))}
       </ul>
-      <div
-        className="text-center p-2 text-sm text-rose-500 hover:underline cursor-pointer"
+      <Link
+        to="/admin"
+        className="block text-center p-2 text-sm text-rose-500 hover:underline cursor-pointer"
         onClick={onClose}
       >
         View all
-      </div>
+      </Link>
+
     </div>
   );
 }

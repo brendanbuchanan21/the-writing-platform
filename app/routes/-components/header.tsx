@@ -103,15 +103,15 @@ export function Header() {
                     notifications={[
                       {
                         id: "1",
-                        title: "New book submitted",
+                        title: "this story is wonderful!",
                         timestamp: "2 hours ago",
                         icon: 'comment',
                       },
                       {
                         id: "2",
-                        title: "System maintenance scheduled",
+                        title: "such an eloquent piece",
                         timestamp: "1 day ago",
-                        icon: 'message',
+                        icon: 'comment',
                       },
                     ]}
                   />
@@ -162,15 +162,15 @@ export function Header() {
                     notifications={[
                       {
                         id: "1",
-                        title: "New book submitted",
+                        title: "this story is wonderful!",
                         timestamp: "2 hours ago",
                         icon: 'comment',
                       },
                       {
                         id: "2",
-                        title: "System maintenance scheduled",
+                        title: "such an eloquent piece",
                         timestamp: "1 day ago",
-                        icon: 'message',
+                        icon: 'comment',
                       },
                     ]}
                   />
