@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { Button } from "../../components/ui/button";
-import { Menu } from "lucide-react";
+import { Menu, Bell } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "../../components/ui/sheet";
 import { useState } from "react";
 import { cn } from "~/lib/utils";
@@ -9,6 +9,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { database } from "~/db";
 import { z } from "zod";
 import { configuration } from "~/config";
+import NotificationsDropdown from "~/components/ui/notifications-dropdown";
 
 export const getBooksFn = createServerFn()
   .validator(
@@ -28,6 +29,14 @@ export const getBooksFn = createServerFn()
 export function Header() {
   const [isOpen, setIsOpen] = useState(false);
   const user = useAuth();
+  const isAdmin = user?.isAdmin;
+  const hasUnseenNotifications = true;
+
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  console.log(dropdownOpen, 'huh?');
+
+  //temporary showing bell via this
+  const showBell = user?.isAdmin || true;
 
   return (
     <div className="fixed top-0 left-0 right-0 bg-white/80 backdrop-blur-sm border-b border-rose-100 z-50">
@@ -74,31 +83,100 @@ export function Header() {
 
           {/* Desktop Menu */}
           <div className="hidden md:flex items-center gap-4">
-            <div className="flex items-center gap-4">
-              {user ? (
-                <a href="/api/logout">
-                  <Button
-                    variant="outline"
-                    className="border-rose-200 hover:bg-rose-50"
-                  >
-                    Sign Out
-                  </Button>
-                </a>
-              ) : (
-                <a href="/api/login/google">
-                  <Button
-                    variant="outline"
-                    className="border-rose-200 hover:bg-rose-50"
-                  >
-                    Sign In
-                  </Button>
-                </a>
-              )}
-            </div>
+            {showBell && (
+              <div className="relative">
+                <button
+                  className="relative p-2 rounded-full hover:bg-gray-100 transition"
+                  aria-label="Notifications"
+                  onClick={() => setDropdownOpen((prev) => !prev)}
+                >
+                  <Bell className="w-5 h-5 text-gray-600" />
+                  {hasUnseenNotifications && (
+                    <span className="absolute top-1 right-1 h-2 w-2 bg-red-500 rounded-full" />
+                  )}
+                </button>
+
+                {dropdownOpen && (
+                  <NotificationsDropdown
+                    isOpen={dropdownOpen}
+                    onClose={() => setDropdownOpen(false)}
+                    notifications={[
+                      {
+                        id: "1",
+                        title: "this story is wonderful!",
+                        timestamp: "2 hours ago",
+                        icon: 'comment',
+                      },
+                      {
+                        id: "2",
+                        title: "such an eloquent piece",
+                        timestamp: "1 day ago",
+                        icon: 'comment',
+                      },
+                    ]}
+                  />
+                )}
+              </div>
+            )}
+
+            {user ? (
+              <a href="/api/logout">
+                <Button
+                  variant="outline"
+                  className="border-rose-200 hover:bg-rose-50"
+                >
+                  Sign Out
+                </Button>
+              </a>
+            ) : (
+              <a href="/api/login/google">
+                <Button
+                  variant="outline"
+                  className="border-rose-200 hover:bg-rose-50"
+                >
+                  Sign In
+                </Button>
+              </a>
+            )}
           </div>
 
           {/* Mobile Menu */}
-          <div className="md:hidden">
+          <div className="md:hidden flex items-center gap-4">
+            {showBell && (
+              <div className="relative">
+                <button
+                  className="relative p-2 rounded-full hover:bg-gray-100 transition"
+                  aria-label="Notifications"
+                  onClick={() => setDropdownOpen((prev) => !prev)}
+                >
+                  <Bell className="w-5 h-5 text-gray-600" />
+                  {hasUnseenNotifications && (
+                    <span className="absolute top-1 right-1 h-2 w-2 bg-red-500 rounded-full" />
+                  )}
+                </button>
+
+                {dropdownOpen && (
+                  <NotificationsDropdown
+                    isOpen={dropdownOpen}
+                    onClose={() => setDropdownOpen(false)}
+                    notifications={[
+                      {
+                        id: "1",
+                        title: "this story is wonderful!",
+                        timestamp: "2 hours ago",
+                        icon: 'comment',
+                      },
+                      {
+                        id: "2",
+                        title: "such an eloquent piece",
+                        timestamp: "1 day ago",
+                        icon: 'comment',
+                      },
+                    ]}
+                  />
+                )}
+              </div>
+            )}
             <Sheet open={isOpen} onOpenChange={setIsOpen}>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-10 w-10 p-0">
@@ -149,4 +227,5 @@ export function Header() {
       </div>
     </div>
   );
+
 }
