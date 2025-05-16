@@ -46,7 +46,7 @@ export function Adminpage() {
       <main className="relative z-10 max-w-5xl mx-auto overflow-x-hidden">
         <div className="flex flex-col sm:flex-row items-center justify-between mb-10">
           <h1 className="text-2xl sm:text-4xl font-bold text-gray-800 text-center sm:text-left">
-            Admin Dashboard
+            Notifications
           </h1>
 
           <select

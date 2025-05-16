@@ -76,7 +76,7 @@ function NotificationsDropdown({
       </ul>
 
       <Link
-        to="/admin"
+        to="/admin/notifications"
         className="block text-center p-2 text-sm text-rose-500 hover:underline cursor-pointer"
         onClick={onClose}
       >
