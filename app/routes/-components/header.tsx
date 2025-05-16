@@ -99,6 +99,9 @@ export function Header() {
                 {dropdownOpen && (
                   <NotificationsDropdown
                     isOpen={dropdownOpen}
+                    onDismiss={(id) => {
+                      console.log('Dismiss notification with id', id);
+                    }}
                     onClose={() => setDropdownOpen(false)}
                     notifications={[
                       {
@@ -106,12 +109,14 @@ export function Header() {
                         title: "this story is wonderful!",
                         timestamp: "2 hours ago",
                         icon: 'comment',
+                        imageId: '',
                       },
                       {
                         id: "2",
                         title: "such an eloquent piece",
                         timestamp: "1 day ago",
                         icon: 'comment',
+                        imageId: 'https://i.pravatar.cc/40?u=2',
                       },
                     ]}
                   />
@@ -159,18 +164,23 @@ export function Header() {
                   <NotificationsDropdown
                     isOpen={dropdownOpen}
                     onClose={() => setDropdownOpen(false)}
+                    onDismiss={(id) => {
+                      console.log('dismiss notification with id', id);
+                    }}
                     notifications={[
                       {
                         id: "1",
                         title: "this story is wonderful!",
                         timestamp: "2 hours ago",
                         icon: 'comment',
+                        imageId: 'https://i.pravatar.cc/40?u=1',
                       },
                       {
                         id: "2",
                         title: "such an eloquent piece",
                         timestamp: "1 day ago",
                         icon: 'comment',
+                        imageId: 'https://i.pravatar.cc/40?u=2',
                       },
                     ]}
                   />
