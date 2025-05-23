@@ -1,10 +1,6 @@
 {
-<<<<<<< HEAD
-  "id": "1640708d-38cc-4a09-afae-a0a37b9b2a92",
-=======
-  "id": "442e1f2c-0bbb-451b-a631-82b7d9641a56",
->>>>>>> main
-  "prevId": "5b09b25c-ef0b-4c17-8e38-a55c1481f1fa",
+  "id": "18ed22af-44f4-4143-b41b-4232749de559",
+  "prevId": "442e1f2c-0bbb-451b-a631-82b7d9641a56",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -305,8 +301,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-<<<<<<< HEAD
-=======
     "public.app_configuration": {
       "name": "app_configuration",
       "schema": "",
@@ -346,6 +340,13 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "company": {
+          "name": "company",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
         }
       },
       "indexes": {},
@@ -356,7 +357,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
->>>>>>> main
     "public.app_image": {
       "name": "app_image",
       "schema": "",
@@ -382,88 +382,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-<<<<<<< HEAD
-    "public.app_notification": {
-      "name": "app_notification",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "serial",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "userId": {
-          "name": "userId",
-          "type": "serial",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "commentId": {
-          "name": "commentId",
-          "type": "serial",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "isRead": {
-          "name": "isRead",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "icon": {
-          "name": "icon",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'comment'"
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "app_notification_userId_app_user_id_fk": {
-          "name": "app_notification_userId_app_user_id_fk",
-          "tableFrom": "app_notification",
-          "tableTo": "app_user",
-          "columnsFrom": [
-            "userId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "app_notification_commentId_app_comment_id_fk": {
-          "name": "app_notification_commentId_app_comment_id_fk",
-          "tableFrom": "app_notification",
-          "tableTo": "app_comment",
-          "columnsFrom": [
-            "commentId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-=======
->>>>>>> main
     "public.app_profile": {
       "name": "app_profile",
       "schema": "",

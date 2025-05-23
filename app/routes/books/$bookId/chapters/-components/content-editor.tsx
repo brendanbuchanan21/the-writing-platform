@@ -3,19 +3,32 @@ import { EditorContent, useEditor, type Editor } from "@tiptap/react";
 import { Toolbar } from "./toolbar";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { isAdminFn } from "~/fn/auth";
 
 interface ContentEditorProps {
-  isAdmin: boolean;
   content?: string;
   onContentChange?: (content: string) => void;
 }
 
 export function ContentEditor({
-  isAdmin,
   content,
   onContentChange,
 }: ContentEditorProps) {
+  const lastSelection = useRef<{ from: number; to: number } | null>(null);
+
+  const { data: isAdmin } = useQuery({
+    queryKey: ["isAdmin"],
+    queryFn: isAdminFn,
+  });
+
+  const calculateWordCount = (html: string) => {
+    const text = html.replace(/<[^>]*>/g, " ");
+    const words = text.trim().split(/\s+/);
+    return words.length;
+  };
+
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -29,8 +42,15 @@ export function ContentEditor({
     content: "",
     editable: isAdmin,
     onUpdate: ({ editor }) => {
-      if (isAdmin && onContentChange) {
-        onContentChange(editor.getHTML());
+      if (isAdmin) {
+        // Store current selection before update
+        const { from, to } = editor.state.selection;
+        lastSelection.current = { from, to };
+
+        const html = editor.getHTML();
+        if (onContentChange) {
+          onContentChange(html);
+        }
       }
     },
     editorProps: {
@@ -43,8 +63,17 @@ export function ContentEditor({
 
   // Update editor content when data is loaded
   useEffect(() => {
-    if (editor && content) {
-      editor.commands.setContent(content);
+    if (editor) {
+      if (content) {
+        editor.commands.setContent(content);
+        // Restore selection after content update
+        if (lastSelection.current) {
+          editor.commands.setTextSelection(lastSelection.current);
+        }
+      } else {
+        // Clear the editor when content is empty or undefined
+        editor.commands.setContent("");
+      }
     }
   }, [editor, content]);
 
@@ -64,7 +93,7 @@ export function ContentEditor({
             }
           }}
         >
-          <div className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+          <div className="border-b border-input">
             <Toolbar editor={editor} />
           </div>
           <div

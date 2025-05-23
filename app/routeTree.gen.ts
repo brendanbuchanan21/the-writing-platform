@@ -18,10 +18,11 @@ import { Route as PurchaseImport } from './routes/purchase'
 import { Route as PrivacyPolicyImport } from './routes/privacy-policy'
 import { Route as LoginImport } from './routes/login'
 import { Route as CancelImport } from './routes/cancel'
-import { Route as AboutImport } from './routes/about'
 import { Route as IndexImport } from './routes/index'
+import { Route as ProfileIndexImport } from './routes/profile/index'
 import { Route as BooksIndexImport } from './routes/books/index'
 import { Route as AdminIndexImport } from './routes/admin/index'
+import { Route as AboutIndexImport } from './routes/about/index'
 import { Route as BooksCreateImport } from './routes/books/create'
 import { Route as AdminNotificationsImport } from './routes/admin/notifications'
 import { Route as AdminAnalyticsImport } from './routes/admin/analytics'
@@ -73,15 +74,15 @@ const CancelRoute = CancelImport.update({
   getParentRoute: () => rootRoute,
 } as any)
 
-const AboutRoute = AboutImport.update({
-  id: '/about',
-  path: '/about',
-  getParentRoute: () => rootRoute,
-} as any)
-
 const IndexRoute = IndexImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const ProfileIndexRoute = ProfileIndexImport.update({
+  id: '/profile/',
+  path: '/profile/',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -94,6 +95,12 @@ const BooksIndexRoute = BooksIndexImport.update({
 const AdminIndexRoute = AdminIndexImport.update({
   id: '/admin/',
   path: '/admin/',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const AboutIndexRoute = AboutIndexImport.update({
+  id: '/about/',
+  path: '/about/',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -143,13 +150,6 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexImport
-      parentRoute: typeof rootRoute
-    }
-    '/about': {
-      id: '/about'
-      path: '/about'
-      fullPath: '/about'
-      preLoaderRoute: typeof AboutImport
       parentRoute: typeof rootRoute
     }
     '/cancel': {
@@ -222,6 +222,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BooksCreateImport
       parentRoute: typeof rootRoute
     }
+    '/about/': {
+      id: '/about/'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof AboutIndexImport
+      parentRoute: typeof rootRoute
+    }
     '/admin/': {
       id: '/admin/'
       path: '/admin'
@@ -234,6 +241,13 @@ declare module '@tanstack/react-router' {
       path: '/books'
       fullPath: '/books'
       preLoaderRoute: typeof BooksIndexImport
+      parentRoute: typeof rootRoute
+    }
+    '/profile/': {
+      id: '/profile/'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileIndexImport
       parentRoute: typeof rootRoute
     }
     '/books/$bookId/edit': {
@@ -264,7 +278,6 @@ declare module '@tanstack/react-router' {
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/about': typeof AboutRoute
   '/cancel': typeof CancelRoute
   '/login': typeof LoginRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
@@ -275,8 +288,10 @@ export interface FileRoutesByFullPath {
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/notifications': typeof AdminNotificationsRoute
   '/books/create': typeof BooksCreateRoute
+  '/about': typeof AboutIndexRoute
   '/admin': typeof AdminIndexRoute
   '/books': typeof BooksIndexRoute
+  '/profile': typeof ProfileIndexRoute
   '/books/$bookId/edit': typeof BooksBookIdEditRoute
   '/books/$bookId': typeof BooksBookIdIndexRoute
   '/books/$bookId/chapters/$chapterId': typeof BooksBookIdChaptersChapterIdRoute
@@ -284,7 +299,6 @@ export interface FileRoutesByFullPath {
 
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/about': typeof AboutRoute
   '/cancel': typeof CancelRoute
   '/login': typeof LoginRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
@@ -295,8 +309,10 @@ export interface FileRoutesByTo {
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/notifications': typeof AdminNotificationsRoute
   '/books/create': typeof BooksCreateRoute
+  '/about': typeof AboutIndexRoute
   '/admin': typeof AdminIndexRoute
   '/books': typeof BooksIndexRoute
+  '/profile': typeof ProfileIndexRoute
   '/books/$bookId/edit': typeof BooksBookIdEditRoute
   '/books/$bookId': typeof BooksBookIdIndexRoute
   '/books/$bookId/chapters/$chapterId': typeof BooksBookIdChaptersChapterIdRoute
@@ -305,7 +321,6 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRoute
   '/': typeof IndexRoute
-  '/about': typeof AboutRoute
   '/cancel': typeof CancelRoute
   '/login': typeof LoginRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
@@ -316,8 +331,10 @@ export interface FileRoutesById {
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/notifications': typeof AdminNotificationsRoute
   '/books/create': typeof BooksCreateRoute
+  '/about/': typeof AboutIndexRoute
   '/admin/': typeof AdminIndexRoute
   '/books/': typeof BooksIndexRoute
+  '/profile/': typeof ProfileIndexRoute
   '/books/$bookId/edit': typeof BooksBookIdEditRoute
   '/books/$bookId/': typeof BooksBookIdIndexRoute
   '/books/$bookId/chapters/$chapterId': typeof BooksBookIdChaptersChapterIdRoute
@@ -327,7 +344,6 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/about'
     | '/cancel'
     | '/login'
     | '/privacy-policy'
@@ -338,15 +354,16 @@ export interface FileRouteTypes {
     | '/admin/analytics'
     | '/admin/notifications'
     | '/books/create'
+    | '/about'
     | '/admin'
     | '/books'
+    | '/profile'
     | '/books/$bookId/edit'
     | '/books/$bookId'
     | '/books/$bookId/chapters/$chapterId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/about'
     | '/cancel'
     | '/login'
     | '/privacy-policy'
@@ -357,15 +374,16 @@ export interface FileRouteTypes {
     | '/admin/analytics'
     | '/admin/notifications'
     | '/books/create'
+    | '/about'
     | '/admin'
     | '/books'
+    | '/profile'
     | '/books/$bookId/edit'
     | '/books/$bookId'
     | '/books/$bookId/chapters/$chapterId'
   id:
     | '__root__'
     | '/'
-    | '/about'
     | '/cancel'
     | '/login'
     | '/privacy-policy'
@@ -376,8 +394,10 @@ export interface FileRouteTypes {
     | '/admin/analytics'
     | '/admin/notifications'
     | '/books/create'
+    | '/about/'
     | '/admin/'
     | '/books/'
+    | '/profile/'
     | '/books/$bookId/edit'
     | '/books/$bookId/'
     | '/books/$bookId/chapters/$chapterId'
@@ -386,7 +406,6 @@ export interface FileRouteTypes {
 
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AboutRoute: typeof AboutRoute
   CancelRoute: typeof CancelRoute
   LoginRoute: typeof LoginRoute
   PrivacyPolicyRoute: typeof PrivacyPolicyRoute
@@ -397,8 +416,10 @@ export interface RootRouteChildren {
   AdminAnalyticsRoute: typeof AdminAnalyticsRoute
   AdminNotificationsRoute: typeof AdminNotificationsRoute
   BooksCreateRoute: typeof BooksCreateRoute
+  AboutIndexRoute: typeof AboutIndexRoute
   AdminIndexRoute: typeof AdminIndexRoute
   BooksIndexRoute: typeof BooksIndexRoute
+  ProfileIndexRoute: typeof ProfileIndexRoute
   BooksBookIdEditRoute: typeof BooksBookIdEditRoute
   BooksBookIdIndexRoute: typeof BooksBookIdIndexRoute
   BooksBookIdChaptersChapterIdRoute: typeof BooksBookIdChaptersChapterIdRoute
@@ -406,7 +427,6 @@ export interface RootRouteChildren {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AboutRoute: AboutRoute,
   CancelRoute: CancelRoute,
   LoginRoute: LoginRoute,
   PrivacyPolicyRoute: PrivacyPolicyRoute,
@@ -417,8 +437,10 @@ const rootRouteChildren: RootRouteChildren = {
   AdminAnalyticsRoute: AdminAnalyticsRoute,
   AdminNotificationsRoute: AdminNotificationsRoute,
   BooksCreateRoute: BooksCreateRoute,
+  AboutIndexRoute: AboutIndexRoute,
   AdminIndexRoute: AdminIndexRoute,
   BooksIndexRoute: BooksIndexRoute,
+  ProfileIndexRoute: ProfileIndexRoute,
   BooksBookIdEditRoute: BooksBookIdEditRoute,
   BooksBookIdIndexRoute: BooksBookIdIndexRoute,
   BooksBookIdChaptersChapterIdRoute: BooksBookIdChaptersChapterIdRoute,
@@ -435,7 +457,6 @@ export const routeTree = rootRoute
       "filePath": "__root.tsx",
       "children": [
         "/",
-        "/about",
         "/cancel",
         "/login",
         "/privacy-policy",
@@ -446,8 +467,10 @@ export const routeTree = rootRoute
         "/admin/analytics",
         "/admin/notifications",
         "/books/create",
+        "/about/",
         "/admin/",
         "/books/",
+        "/profile/",
         "/books/$bookId/edit",
         "/books/$bookId/",
         "/books/$bookId/chapters/$chapterId"
@@ -455,9 +478,6 @@ export const routeTree = rootRoute
     },
     "/": {
       "filePath": "index.tsx"
-    },
-    "/about": {
-      "filePath": "about.tsx"
     },
     "/cancel": {
       "filePath": "cancel.tsx"
@@ -489,11 +509,17 @@ export const routeTree = rootRoute
     "/books/create": {
       "filePath": "books/create.tsx"
     },
+    "/about/": {
+      "filePath": "about/index.tsx"
+    },
     "/admin/": {
       "filePath": "admin/index.tsx"
     },
     "/books/": {
       "filePath": "books/index.tsx"
+    },
+    "/profile/": {
+      "filePath": "profile/index.tsx"
     },
     "/books/$bookId/edit": {
       "filePath": "books/$bookId/edit.tsx"

@@ -12,54 +12,74 @@ import { DefaultCatchBoundary } from "~/components/DefaultCatchBoundary";
 import { NotFound } from "~/components/NotFound";
 import appCss from "~/styles/app.css?url";
 import { seo } from "~/utils/seo";
-import { Header } from "~/routes/-components/header";
+import { getConfigurationFn, Header } from "~/routes/-components/header";
 import { FooterSection } from "~/routes/-components/footer";
 import NProgress from "nprogress";
 import "nprogress/nprogress.css";
 import { Toaster } from "~/components/ui/toaster";
-import { configuration } from "~/config";
+import { Configuration } from "~/db/schema";
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   {
-    head: () => ({
-      meta: [
-        { charSet: "utf-8" },
-        { name: "viewport", content: "width=device-width, initial-scale=1" },
-        ...seo({
-          title: configuration.name,
-          description: configuration.description,
-        }),
-      ],
-      links: [
-        { rel: "stylesheet", href: appCss },
-        {
-          rel: "apple-touch-icon",
-          sizes: "180x180",
-          href: "/apple-touch-icon.png",
-        },
-        {
-          rel: "icon",
-          type: "image/png",
-          sizes: "32x32",
-          href: "/favicon-32x32.png",
-        },
-        {
-          rel: "icon",
-          type: "image/png",
-          sizes: "16x16",
-          href: "/favicon-16x16.png",
-        },
-        { rel: "manifest", href: "/site.webmanifest", color: "#fffff" },
-        { rel: "icon", href: "/favicon.ico" },
-      ],
-      scripts: [
-        {
-          src: "https://umami-production-101d.up.railway.app/script.js",
-          defer: true,
-          "data-website-id": "bde4216e-7d46-49e4-8bfc-7f28d5a0ba17",
-        },
-      ],
-    }),
+    head: ({ loaderData }) => {
+      const typedConfiguration = (loaderData as any)
+        .configuration as Configuration;
+      const title = typedConfiguration.name;
+      const description = typedConfiguration.name; // TODO: this should be the general site description
+      const base64EncodedFavIcon = typedConfiguration.favicon;
+
+      return {
+        meta: [
+          { charSet: "utf-8" },
+          { name: "viewport", content: "width=device-width, initial-scale=1" },
+          ...seo({
+            title,
+            description,
+          }),
+        ],
+        links: [
+          { rel: "stylesheet", href: appCss },
+          {
+            rel: "apple-touch-icon",
+            sizes: "180x180",
+            href: base64EncodedFavIcon,
+          },
+          {
+            rel: "icon",
+            type: "image/png",
+            sizes: "32x32",
+            href: base64EncodedFavIcon,
+          },
+          {
+            rel: "icon",
+            type: "image/png",
+            sizes: "16x16",
+            href: base64EncodedFavIcon,
+          },
+          {
+            rel: "icon",
+            href: base64EncodedFavIcon,
+          },
+        ],
+        scripts: [
+          {
+            src: "https://umami-production-101d.up.railway.app/script.js",
+            defer: true,
+            "data-website-id": "a40cba1d-b3d3-430f-9174-58ef5ecf69ae",
+          },
+        ],
+      };
+    },
+    loader: async ({ context }) => {
+      const configuration = await context.queryClient.ensureQueryData({
+        queryKey: ["configuration"],
+        queryFn: getConfigurationFn,
+      });
+
+      return {
+        configuration,
+      };
+    },
     errorComponent: (props) => {
       return (
         <RootDocument>
@@ -104,11 +124,11 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
         <style>{`
           #nprogress .bar {
-            background: #22c55e !important;
+            background: #fb7185 !important;
             height: 3px;
           }
           #nprogress .peg {
-            box-shadow: 0 0 10px #22c55e, 0 0 5px #22c55e;
+            box-shadow: 0 0 10px #fb7185, 0 0 5px #fb7185;
           }
           #nprogress .spinner-icon {
             display: none;

@@ -25,11 +25,21 @@ export function ChapterNavigation({
     queryFn: () => getBookChaptersFn({ data: { bookId } }),
   });
 
-  if (isLoading || !data) return null;
+  if (isLoading || !data) {
+    return (
+      <Button variant="outline" className="gap-2 h-10 px-3 py-2 text-sm">
+        <div className="h-4 w-20 animate-pulse rounded bg-gray-200" />
+        <ChevronDown className="h-4 w-4 opacity-50" />
+      </Button>
+    );
+  }
 
   const currentChapter = data.chapters.find(
     (chapter) => parseInt(currentChapterId) === chapter.id
   );
+
+  // Sort chapters by order
+  const sortedChapters = [...data.chapters].sort((a, b) => a.order - b.order);
 
   return (
     <DropdownMenu>
@@ -44,9 +54,9 @@ export function ChapterNavigation({
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="start"
-        className="w-[400px] bg-background border border-input shadow-md"
+        className="w-[400px] z-[60] bg-background border border-input shadow-md max-h-[300px] overflow-y-auto"
       >
-        {data.chapters.map((chapter) => (
+        {sortedChapters.map((chapter) => (
           <DropdownMenuItem
             key={chapter.id}
             asChild

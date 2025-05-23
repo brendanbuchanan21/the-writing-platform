@@ -6,6 +6,7 @@ import {
   serial,
   text,
   timestamp,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -30,6 +31,9 @@ export const profiles = tableCreator("profile", {
   displayName: text("displayName"),
   imageId: text("imageId"),
   image: text("image"),
+  imageRefId: integer("imageRefId").references(() => images.id, {
+    onDelete: "set null",
+  }),
   bio: text("bio").notNull().default(""),
 });
 
@@ -45,6 +49,10 @@ export const profilesRelations = relations(profiles, ({ one }) => ({
   user: one(users, {
     fields: [profiles.userId],
     references: [users.id],
+  }),
+  image: one(images, {
+    fields: [profiles.imageRefId],
+    references: [images.id],
   }),
 }));
 
@@ -99,6 +107,28 @@ export const chapters = tableCreator("chapter", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+export const images = tableCreator("image", {
+  id: serial("id").primaryKey(),
+  data: text("data").notNull(),
+});
+
+export type Image = typeof images.$inferSelect;
+
+export const imagesRelations = relations(images, ({ many }) => ({
+  profiles: many(profiles),
+}));
+
+export const configuration = tableCreator("configuration", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  heading: text("heading").notNull(),
+  subHeading: text("subHeading").notNull(),
+  email: text("email").notNull(),
+  about: text("about").notNull(),
+  company: text("company").notNull().default(""),
+  favicon: text("favicon").notNull().default(""),
+});
+
 export const comments = tableCreator("comment", {
   id: serial("id").primaryKey(),
   chapterId: serial("chapterId")
@@ -107,17 +137,22 @@ export const comments = tableCreator("comment", {
   userId: serial("userId")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
+  parentCommentId: integer("parentCommentId").references(() => comments.id, {
+    onDelete: "cascade",
+  }),
   content: text("content").notNull().default(""),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
+}) as typeof comments;
 
-export const images = tableCreator("image", {
-  id: serial("id").primaryKey(),
-  data: text("data").notNull(),
-});
+export const booksRelations = relations(books, ({ one }) => ({
+  coverImage: one(images, {
+    fields: [books.coverImageId],
+    references: [images.id],
+  }),
+}));
 
-export const commentsRelations = relations(comments, ({ one }) => ({
+export const commentsRelations = relations(comments, ({ one, many }) => ({
   user: one(users, {
     fields: [comments.userId],
     references: [users.id],
@@ -126,12 +161,39 @@ export const commentsRelations = relations(comments, ({ one }) => ({
     fields: [comments.chapterId],
     references: [chapters.id],
   }),
+  parent: one(comments, {
+    fields: [comments.parentCommentId],
+    references: [comments.id],
+  }),
+  children: many(comments),
 }));
 
-export const booksRelations = relations(books, ({ one }) => ({
-  coverImage: one(images, {
-    fields: [books.coverImageId],
-    references: [images.id],
+export const commentHearts = tableCreator(
+  "comment_heart",
+  {
+    id: serial("id").primaryKey(),
+    userId: serial("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    commentId: serial("commentId")
+      .notNull()
+      .references(() => comments.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    index("user_comment_idx").on(table.userId, table.commentId),
+    uniqueIndex("user_comment_unique_idx").on(table.userId, table.commentId),
+  ]
+);
+
+export const commentHeartsRelations = relations(commentHearts, ({ one }) => ({
+  user: one(users, {
+    fields: [commentHearts.userId],
+    references: [users.id],
+  }),
+  comment: one(comments, {
+    fields: [commentHearts.commentId],
+    references: [comments.id],
   }),
 }));
 
@@ -168,4 +230,7 @@ export type Session = typeof sessions.$inferSelect;
 export type Book = typeof books.$inferSelect;
 export type Chapter = typeof chapters.$inferSelect;
 export type Comment = typeof comments.$inferSelect;
-export type Notification = typeof notifications.$inferSelect;
+
+export type Notification = typeof notifications.$inferSelect
+export type Configuration = typeof configuration.$inferSelect;
+

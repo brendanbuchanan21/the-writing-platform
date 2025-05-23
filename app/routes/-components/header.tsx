@@ -8,8 +8,12 @@ import { useAuth } from "~/hooks/use-auth";
 import { createServerFn } from "@tanstack/react-start";
 import { database } from "~/db";
 import { z } from "zod";
-import { configuration } from "~/config";
 import NotificationsDropdown from "~/components/ui/notifications-dropdown";
+import { useQuery } from "@tanstack/react-query";
+import { isAdminFn } from "~/fn/auth";
+import { getConfiguration } from "~/data-access/configuration";
+import { AvatarDropdown } from "./avatar-dropdown";
+
 
 export const getBooksFn = createServerFn()
   .validator(
@@ -26,10 +30,14 @@ export const getBooksFn = createServerFn()
     return books;
   });
 
+export const getConfigurationFn = createServerFn().handler(async () => {
+  return await getConfiguration();
+});
+
 export function Header() {
   const [isOpen, setIsOpen] = useState(false);
   const user = useAuth();
-  const isAdmin = user?.isAdmin;
+  
   const hasUnseenNotifications = true;
 
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -37,6 +45,15 @@ export function Header() {
 
   //temporary showing bell via this
   const showBell = user?.isAdmin || true;
+  const isAdmin = useQuery({
+    queryKey: ["isAdmin"],
+    queryFn: isAdminFn,
+  });
+
+  const configuration = useQuery({
+    queryKey: ["configuration"],
+    queryFn: getConfigurationFn,
+  });
 
   return (
     <div className="fixed top-0 left-0 right-0 bg-white/80 backdrop-blur-sm border-b border-rose-100 z-50">
@@ -45,15 +62,16 @@ export function Header() {
           {/* Logo and Brand */}
           <div className="flex items-center gap-12">
             <Link to="/" className="flex items-center gap-3">
+              <img className="size-12" src={configuration.data?.favicon} />
               <span className="font-serif text-xl text-gray-800">
-                {configuration.name}
+                {configuration.data?.name || "Loading..."}
               </span>
             </Link>
             <Link
               to="/"
               className={cn(
                 "hidden md:flex transition-colors",
-                "text-gray-600 hover:text-gray-800 font-light"
+                "text-gray-600 hover:text-rose-400 font-light"
               )}
               activeProps={{ className: "text-rose-600" }}
             >
@@ -63,7 +81,7 @@ export function Header() {
               to="/books"
               className={cn(
                 "hidden md:flex transition-colors",
-                "text-gray-600 hover:text-gray-800 font-light"
+                "text-gray-600 hover:text-rose-400 font-light"
               )}
               activeProps={{ className: "text-rose-600" }}
             >
@@ -73,7 +91,7 @@ export function Header() {
               to="/about"
               className={cn(
                 "hidden md:flex transition-colors",
-                "text-gray-600 hover:text-gray-800 font-light"
+                "text-gray-600 hover:text-rose-400 font-light"
               )}
               activeProps={{ className: "text-rose-600" }}
             >
@@ -83,7 +101,8 @@ export function Header() {
 
           {/* Desktop Menu */}
           <div className="hidden md:flex items-center gap-4">
-            {showBell && (
+
+          {showBell && (
               <div className="relative">
                 <button
                   className="relative p-2 rounded-full hover:bg-gray-100 transition"
@@ -124,15 +143,21 @@ export function Header() {
               </div>
             )}
 
+            {isAdmin.data && (
+              <Link
+                to="/admin"
+                className={cn(
+                  "transition-colors",
+                  "text-gray-600 hover:text-gray-800 font-light"
+                )}
+                activeProps={{ className: "text-rose-600" }}
+              >
+                <Button>Admin</Button>
+              </Link>
+            )}
+
             {user ? (
-              <a href="/api/logout">
-                <Button
-                  variant="outline"
-                  className="border-rose-200 hover:bg-rose-50"
-                >
-                  Sign Out
-                </Button>
-              </a>
+              <AvatarDropdown />
             ) : (
               <a href="/api/login/google">
                 <Button
@@ -213,7 +238,15 @@ export function Header() {
                   >
                     About
                   </Link>
-
+                  {isAdmin.data && (
+                    <Link
+                      to="/admin"
+                      className="flex items-center py-2 text-lg font-light text-gray-800 hover:text-rose-600 transition-colors"
+                      onClick={() => setIsOpen(false)}
+                    >
+                      Admin
+                    </Link>
+                  )}
                   {user ? (
                     <a
                       href="/api/logout"

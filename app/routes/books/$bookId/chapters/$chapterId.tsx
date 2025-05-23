@@ -1,66 +1,51 @@
-import { createFileRoute, useRouter } from "@tanstack/react-router";
-import {
-  useQuery,
-  useMutation,
-  useQueryClient,
-  useSuspenseQuery,
-} from "@tanstack/react-query";
+import { createFileRoute } from "@tanstack/react-router";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "~/components/ui/button";
 import { useToast } from "~/hooks/use-toast";
-import { useEditor, EditorContent, type Editor } from "@tiptap/react";
-import StarterKit from "@tiptap/starter-kit";
-import Link from "@tiptap/extension-link";
-import {
-  Bold,
-  Italic,
-  List,
-  ListOrdered,
-  Quote,
-  Redo,
-  Strikethrough,
-  Undo,
-  Link as LinkIcon,
-  Heading1,
-  Heading2,
-  Heading3,
-  Code,
-  Loader2,
-  Globe,
-  EyeOff,
-  ArrowLeft,
-  Check,
-} from "lucide-react";
-import { Toggle } from "~/components/ui/toggle";
+import { Loader2, Globe, EyeOff, Plus, Trash2 } from "lucide-react";
 import { isAdminFn } from "~/fn/auth";
 import { useState, useEffect, useRef, Suspense } from "react";
 import { Comments } from "./-components/comments";
-import { formatDistanceToNow } from "date-fns";
 import {
   getBookChaptersFn,
   getBookFn,
   getChapterFn,
   togglePublishFn,
-  updateChapterFn,
+  deleteChapterFn,
 } from "./-funs";
 import { ChapterNavigation } from "./-components/chapter-navigation";
-import { BookTitle } from "./-components/book-title";
-import { ChapterTitle } from "./-components/chapter.title";
+import { BookBanner } from "./-components/book-banner";
+import { ChapterTitle } from "./-components/chapter-title";
 import { ContentEditor } from "./-components/content-editor";
 import { NextChapterButton } from "./-components/next-chapter-button";
 import { SaveStatus } from "./-components/save-status";
 import { ReadingProgress } from "./-components/reading-progress";
-import type { Chapter } from "~/db/schema";
+import { chapters, type Chapter } from "~/db/schema";
+import { GoogleAd } from "~/components/google-ad";
+import { getUserInfoFn } from "~/hooks/use-auth";
+import { createServerFn } from "@tanstack/react-start";
+import { adminMiddleware } from "~/lib/auth";
+import { database } from "~/db";
+import { eq } from "drizzle-orm";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "~/components/ui/alert-dialog";
+import { useRouter } from "@tanstack/react-router";
 
-const SAVE_DELAY = 2000;
+const SAVE_DELAY = 1000;
 
 const formSchema = z.object({
-  title: z
-    .string()
-    .min(2, "Title must be at least 2 characters")
-    .max(100, "Title must be less than 100 characters"),
   content: z.string().min(1, "Content is required"),
 });
 
@@ -69,6 +54,53 @@ type FormValues = z.infer<typeof formSchema>;
 interface ChapterData {
   chapter: Chapter;
 }
+
+export const createChapterFn = createServerFn()
+  .middleware([adminMiddleware])
+  .validator(
+    z.object({
+      bookId: z.string(),
+    })
+  )
+  .handler(async ({ data }) => {
+    // Get the current highest order for chapters in this book
+    const highestOrder = await database.query.chapters.findFirst({
+      where: eq(chapters.bookId, parseInt(data.bookId)),
+      orderBy: (chapters, { desc }) => [desc(chapters.order)],
+    });
+
+    const nextOrder = (highestOrder?.order ?? 0) + 1;
+
+    const chapter = await database
+      .insert(chapters)
+      .values({
+        bookId: parseInt(data.bookId),
+        title: "New Chapter",
+        content: "",
+        order: nextOrder,
+      })
+      .returning();
+
+    return { chapter: chapter[0] };
+  });
+
+export const updateChapterContentFn = createServerFn({ method: "POST" })
+  .middleware([adminMiddleware])
+  .validator(
+    z.object({
+      chapterId: z.string(),
+      content: z.string(),
+    })
+  )
+  .handler(async ({ data }) => {
+    const [chapter] = await database
+      .update(chapters)
+      .set({
+        content: data.content,
+      })
+      .where(eq(chapters.id, parseInt(data.chapterId)))
+      .returning();
+  });
 
 function ChapterPanel({
   children,
@@ -90,54 +122,90 @@ function ChapterPanel({
 
 export const Route = createFileRoute("/books/$bookId/chapters/$chapterId")({
   component: RouteComponent,
-  loader: async () => {
-    const isAdmin = await isAdminFn();
-    return { isAdmin };
+  loader: async ({ context, params }) => {
+    const { chapterId, bookId } = params;
+
+    await context.queryClient.ensureQueryData({
+      queryKey: ["isAdmin"],
+      queryFn: isAdminFn,
+    });
+
+    await context.queryClient.ensureQueryData({
+      queryKey: ["chapter", chapterId],
+      queryFn: () => getChapterFn({ data: { chapterId } }),
+    });
+
+    await context.queryClient.ensureQueryData({
+      queryKey: ["userInfo"],
+      queryFn: () => getUserInfoFn(),
+    });
+
+    await context.queryClient.ensureQueryData({
+      queryKey: ["book", bookId],
+      queryFn: () => getBookFn({ data: { bookId } }),
+    });
+
+    await context.queryClient.ensureQueryData({
+      queryKey: ["book-chapters", bookId],
+      queryFn: () => getBookChaptersFn({ data: { bookId } }),
+    });
   },
 });
 
 function RouteComponent() {
   const { chapterId, bookId } = Route.useParams();
-  const { isAdmin } = Route.useLoaderData();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const router = useRouter();
   const [isSaving, setIsSaving] = useState(false);
-  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [lastSaved, setLastSaved] = useState<Date>(new Date());
   const saveTimeoutRef = useRef<NodeJS.Timeout>(null);
 
-  const { data, isLoading, error } = useQuery({
+  const chapterQuery = useQuery({
     queryKey: ["chapter", chapterId],
     queryFn: () => getChapterFn({ data: { chapterId } }),
     refetchOnWindowFocus: false,
   });
 
+  const bookChaptersQuery = useQuery({
+    queryKey: ["book-chapters", bookId],
+    queryFn: () => getBookChaptersFn({ data: { bookId } }),
+  });
+
+  const { data: isAdmin } = useQuery({
+    queryKey: ["isAdmin"],
+    queryFn: isAdminFn,
+  });
+
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      title: "",
       content: "",
     },
   });
 
   // Update form values when data is loaded
   useEffect(() => {
-    if (data?.chapter) {
+    if (chapterQuery.data?.chapter) {
       form.reset({
-        title: data.chapter.title,
-        content: data.chapter.content,
+        content: chapterQuery.data.chapter.content,
       });
       setLastSaved(new Date());
     }
-  }, [data, form]);
+  }, [chapterQuery.data, form]);
 
   const debounceSave = () => {
+    console.log("debounceSave");
     setIsSaving(true);
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
     saveTimeoutRef.current = setTimeout(() => {
       const values = form.getValues();
-      updateChapterMutation.mutate(values);
+      updateChapterMutation.mutateAsync({
+        chapterId,
+        content: values.content,
+      });
     }, SAVE_DELAY);
   };
 
@@ -151,12 +219,17 @@ function RouteComponent() {
   }, []);
 
   const updateChapterMutation = useMutation({
-    mutationFn: (values: FormValues) =>
-      updateChapterFn({
+    mutationFn: ({
+      chapterId,
+      content,
+    }: {
+      chapterId: string;
+      content: string;
+    }) =>
+      updateChapterContentFn({
         data: {
           chapterId,
-          title: values.title,
-          content: values.content,
+          content,
         },
       }),
     onSuccess: () => {
@@ -187,7 +260,7 @@ function RouteComponent() {
       queryClient.invalidateQueries({ queryKey: ["chapter", chapterId] });
       toast({
         title: "Success",
-        description: `Chapter ${data?.chapter.isPublished ? "unpublished" : "published"} successfully!`,
+        description: `Chapter ${chapterQuery.data?.chapter.isPublished ? "unpublished" : "published"} successfully!`,
       });
     },
     onError: (error) => {
@@ -200,188 +273,234 @@ function RouteComponent() {
     },
   });
 
-  if (isLoading) {
-    return (
-      <>
-        <ReadingProgress />
-        <div className="bg-white border-b border-gray-200">
-          <div className="max-w-5xl mx-auto px-6 py-4">
-            <div className="space-y-2">
-              <div className="h-8 bg-gray-200 rounded w-1/3 animate-pulse"></div>
-              <div className="h-6 bg-gray-200 rounded w-1/4 animate-pulse"></div>
-            </div>
-          </div>
-        </div>
+  const createChapterMutation = useMutation({
+    mutationFn: () => createChapterFn({ data: { bookId } }),
+    onSuccess: (data: { chapter: { id: number } }) => {
+      queryClient.invalidateQueries({ queryKey: ["book-chapters", bookId] });
+      // Navigate to the new chapter
+      window.location.href = `/books/${bookId}/chapters/${data.chapter.id}`;
+    },
+    onError: (error) => {
+      console.error("Failed to create chapter:", error);
+      toast({
+        title: "Error",
+        description: "Failed to create new chapter. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
 
-        <div className="max-w-5xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
-          <div className="space-y-8">
-            {/* Chapter Content Card */}
-            <div className="bg-white shadow-lg rounded-xl">
-              {/* Chapter Panel Skeleton */}
-              <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shadow-sm rounded-t-xl">
-                <div className="flex items-center gap-4">
-                  <div className="h-9 bg-gray-200 rounded w-32 animate-pulse"></div>
-                  <div className="h-9 bg-gray-200 rounded w-32 animate-pulse"></div>
-                </div>
-                <div className="h-9 bg-gray-200 rounded w-28 animate-pulse"></div>
-              </div>
+  const deleteChapterMutation = useMutation({
+    mutationFn: () =>
+      deleteChapterFn({
+        data: {
+          chapterId,
+          bookId,
+        },
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["book-chapters", bookId] });
+      toast({
+        title: "Success",
+        description: "Chapter deleted successfully!",
+      });
+      router.navigate({
+        to: "/books/$bookId",
+        params: { bookId },
+      });
+    },
+    onError: (error) => {
+      console.error("Failed to delete chapter:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete chapter. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
 
-              {/* Chapter Content Skeleton */}
-              <div className="px-6 py-10">
-                <div className="max-w-3xl mx-auto">
-                  {/* Title Skeleton */}
-                  <div className="h-10 bg-gray-200 rounded w-3/4 mb-8 animate-pulse"></div>
-
-                  <hr className="border-gray-400 my-4 mb-8 max-w-2xl mx-auto" />
-
-                  {/* Content Editor Skeleton */}
-                  <div className="space-y-4">
-                    <div className="h-4 bg-gray-200 rounded w-full animate-pulse"></div>
-                    <div className="h-4 bg-gray-200 rounded w-full animate-pulse"></div>
-                    <div className="h-4 bg-gray-200 rounded w-5/6 animate-pulse"></div>
-                    <div className="h-4 bg-gray-200 rounded w-full animate-pulse"></div>
-                    <div className="h-4 bg-gray-200 rounded w-4/6 animate-pulse"></div>
-                    <div className="h-4 bg-gray-200 rounded w-full animate-pulse"></div>
-                  </div>
-
-                  {/* Next Chapter Button Skeleton */}
-                  <div className="flex justify-end mt-8">
-                    <div className="h-9 bg-gray-200 rounded w-32 animate-pulse"></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Comments Section Skeleton */}
-            <div className="bg-white shadow-lg rounded-xl px-6 py-10">
-              <div className="space-y-6">
-                <div className="h-6 bg-gray-200 rounded w-1/4 mb-6 animate-pulse"></div>
-                {[1, 2].map((i) => (
-                  <div key={i} className="space-y-3">
-                    <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 bg-gray-200 rounded-full animate-pulse"></div>
-                      <div className="h-4 bg-gray-200 rounded w-24 animate-pulse"></div>
-                    </div>
-                    <div className="h-4 bg-gray-200 rounded w-full animate-pulse"></div>
-                    <div className="h-4 bg-gray-200 rounded w-5/6 animate-pulse"></div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </>
-    );
-  }
-
-  if (error) {
+  if (chapterQuery.error) {
     return (
       <div className="max-w-5xl mx-auto px-4 py-8">
         <div className="text-red-600">
-          Error loading chapter: {error.message}
+          Error loading chapter: {chapterQuery.error.message}
         </div>
       </div>
     );
   }
 
-  if (!data?.chapter) {
-    return null;
-  }
-
-  const { chapter } = data;
+  const isLastChapter = bookChaptersQuery.data?.chapters.length
+    ? bookChaptersQuery.data.chapters[
+        bookChaptersQuery.data.chapters.length - 1
+      ].id === parseInt(chapterId)
+    : false;
 
   return (
     <>
       <ReadingProgress />
-      <Suspense
-        fallback={
-          <div className="bg-white border-b border-gray-200">
-            <div className="max-w-5xl mx-auto px-6 py-4">
-              <div className="space-y-2">
-                <div className="h-8 bg-gray-200 rounded w-1/3 animate-pulse"></div>
-                <div className="h-6 bg-gray-200 rounded w-1/4 animate-pulse"></div>
-              </div>
-            </div>
-          </div>
-        }
-      >
-        <BookTitle bookId={bookId} chapterTitle={data.chapter.title} />
-      </Suspense>
-      <div className="max-w-5xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
-        <div className="space-y-8">
-          <div className="bg-white shadow-lg rounded-xl">
-            <ChapterPanel
-              left={
-                <ChapterNavigation
-                  bookId={bookId}
-                  currentChapterId={chapterId}
-                />
-              }
-              right={
-                isAdmin && (
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={() =>
-                      togglePublishMutation.mutate(!data?.chapter.isPublished)
-                    }
-                    disabled={togglePublishMutation.isPending}
-                    className="inline-flex items-center gap-2"
-                  >
-                    {togglePublishMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : data?.chapter.isPublished ? (
-                      <>
-                        <EyeOff className="h-4 w-4" />
-                        <span>Unpublish</span>
-                      </>
-                    ) : (
-                      <>
-                        <Globe className="h-4 w-4" />
-                        <span>Publish</span>
-                      </>
-                    )}
-                  </Button>
-                )
-              }
-            />
-            <div className="px-6 py-10">
-              <div className="max-w-3xl mx-auto">
-                <ChapterTitle
-                  title={form.watch("title")}
-                  isAdmin={isAdmin}
-                  onTitleChange={(newTitle) => {
-                    form.setValue("title", newTitle, { shouldValidate: true });
-                    debounceSave();
-                  }}
-                />
+      <BookBanner bookId={bookId} chapterId={chapterId} />
+      <SaveStatus
+        isSaving={isSaving}
+        lastSaved={lastSaved}
+        chapterId={chapterId}
+      />
+      <div className="relative">
+        <div className="max-w-5xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
+          <div className="space-y-8">
+            <div className="bg-white shadow-lg rounded-xl">
+              <ChapterPanel
+                left={
+                  <div className="flex items-center gap-2">
+                    Chapter:
+                    <ChapterNavigation
+                      bookId={bookId}
+                      currentChapterId={chapterId}
+                    />
+                  </div>
+                }
+                right={
+                  isAdmin && (
+                    <div className="flex items-center gap-2">
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            disabled={deleteChapterMutation.isPending}
+                            className="inline-flex items-center gap-2"
+                          >
+                            {deleteChapterMutation.isPending ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <>
+                                <Trash2 className="h-4 w-4" />
+                                <span>Delete Chapter</span>
+                              </>
+                            )}
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This action cannot be undone. This will
+                              permanently delete the chapter and reorder the
+                              remaining chapters.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => deleteChapterMutation.mutate()}
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                              Delete Chapter
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() =>
+                          togglePublishMutation.mutate(
+                            !chapterQuery.data?.chapter.isPublished
+                          )
+                        }
+                        disabled={togglePublishMutation.isPending}
+                        className="inline-flex items-center gap-2"
+                      >
+                        {togglePublishMutation.isPending ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : chapterQuery.data?.chapter.isPublished ? (
+                          <>
+                            <EyeOff className="h-4 w-4" />
+                            <span>Unpublish</span>
+                          </>
+                        ) : (
+                          <>
+                            <Globe className="h-4 w-4" />
+                            <span>Publish</span>
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )
+                }
+              />
+              <div className="px-6 py-10">
+                <div className="max-w-3xl mx-auto">
+                  <ChapterTitle chapterId={chapterId} />
 
-                <hr className="border-gray-400 my-4 mb-8 max-w-2xl mx-auto" />
+                  <hr className="border-gray-400 my-4 mb-8 max-w-2xl mx-auto" />
 
-                <ContentEditor
-                  isAdmin={isAdmin}
-                  content={chapter.content}
-                  onContentChange={(content) => {
-                    form.setValue("content", content, { shouldValidate: true });
-                    debounceSave();
-                  }}
-                />
-
-                <div className="flex justify-end mt-8">
-                  <NextChapterButton
-                    bookId={bookId}
-                    currentChapterId={chapterId}
+                  <ContentEditor
+                    content={chapterQuery.data?.chapter.content}
+                    onContentChange={(content) => {
+                      // Only update form when saving, not on every keystroke
+                      if (saveTimeoutRef.current) {
+                        clearTimeout(saveTimeoutRef.current);
+                      }
+                      saveTimeoutRef.current = setTimeout(() => {
+                        form.setValue("content", content, {
+                          shouldValidate: true,
+                        });
+                        debounceSave();
+                      }, SAVE_DELAY);
+                    }}
                   />
+
+                  <div className="flex justify-between items-center mt-8">
+                    <NextChapterButton
+                      bookId={bookId}
+                      currentChapterId={chapterId}
+                    />
+                    {isAdmin && isLastChapter && (
+                      <Button
+                        onClick={() => createChapterMutation.mutate()}
+                        disabled={createChapterMutation.isPending}
+                        className="inline-flex items-center gap-2 w-full"
+                      >
+                        {createChapterMutation.isPending ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <>
+                            <Plus className="h-4 w-4" />
+                            <span>Create Next Chapter</span>
+                          </>
+                        )}
+                      </Button>
+                    )}
+                    {!isAdmin && isLastChapter && (
+                      <div className="text-center w-full bg-rose-50 p-4 rounded-lg border border-rose-200">
+                        <p className="text-rose-800 font-medium">
+                          You've reached the last chapter of this book!
+                        </p>
+                        <p className="text-rose-600 mt-1">
+                          Create an account to get notified when new chapters
+                          are published.
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
+            <div className="bg-white shadow-lg rounded-xl px-6 py-10">
+              <Comments />
+            </div>
           </div>
-          <div className="bg-white shadow-lg rounded-xl px-6 py-10">
-            <Comments />
+        </div>
+        <div className="absolute top-0 right-0 w-64 h-full pointer-events-none">
+          <div className="sticky top-4 pointer-events-auto">
+            <GoogleAd
+              slot="YOUR_AD_SLOT_ID"
+              format="vertical"
+              style={{ display: "block", width: "100%", height: "600px" }}
+            />
           </div>
         </div>
       </div>
-      <SaveStatus isSaving={isSaving} lastSaved={lastSaved} />
     </>
   );
 }
